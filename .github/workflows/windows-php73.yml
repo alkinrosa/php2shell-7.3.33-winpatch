@@ -35,8 +35,20 @@ jobs:
           choco install visualstudio2017buildtools visualstudio2017-workload-vctools -y --no-progress
           if ($LASTEXITCODE -eq 3010) { exit 0 }
 
-      - name: Get PHP SDK
-        run: git clone --depth 1 --branch php-sdk-2.2.0 https://github.com/php/php-sdk-binary-tools.git C:\php-sdk
+      - name: Get PHP SDK and point it to the new deps server
+        shell: pwsh
+        run: |
+          git clone --depth 1 --branch php-sdk-2.2.0 https://github.com/php/php-sdk-binary-tools.git C:\php-sdk
+          if ($LASTEXITCODE -ne 0) { throw 'git clone of php-sdk failed' }
+          $f = 'C:\php-sdk\lib\php\libsdk\SDK\Config.php'
+          $c = [IO.File]::ReadAllText($f)
+          $c = $c.Replace("'windows.php.net'", "'downloads.php.net'")
+          $c = $c.Replace('"/downloads/php-sdk/deps"', '"/~windows/php-sdk/deps"')
+          $c = $c.Replace(',/packages-(.+)', ',packages-(.+)')
+          [IO.File]::WriteAllText($f, $c)
+          if (-not (Select-String -Path $f -SimpleMatch "'downloads.php.net'")) { throw 'SDK host patch failed' }
+          if (-not (Select-String -Path $f -SimpleMatch '"/~windows/php-sdk/deps"')) { throw 'SDK base URI patch failed' }
+          if (-not (Select-String -Path $f -SimpleMatch ',packages-(.+)')) { throw 'SDK regex patch failed' }
 
       - name: Build
         shell: cmd

@@ -11,6 +11,7 @@ set REPO=%GITHUB_WORKSPACE%
 set SYS=%SystemRoot%\System32
 set OUT=%ROOT%\src\x64\Release_TS
 set DIST=%ROOT%\dist
+set SED="%ProgramFiles%\Git\usr\bin\sed.exe"
 
 if /i "%VARIANT%"=="remicollet" (
 	set PATCH=%REPO%\patches\php-7.3-enhanced-remicollet.patch
@@ -53,6 +54,14 @@ git apply --verbose "%PATCH%" || exit /b 1
 rem --- Remi tree must already contain the multipart body parts limit ---
 if /i "%VARIANT%"=="remicollet" (
 	findstr /c:"max_multipart_body_parts" main\main.c >nul || (echo Remi tree lacks max_multipart_body_parts & exit /b 1)
+)
+
+rem --- Windows: the new php2shell tests must start php-cgi without cmd.exe (proc_open bypass_shell) ---
+for %%F in (ext\session\tests\rfc1867_incomplete_class_reserved_props.phpt ext\session\tests\rfc1867_no_user_code.phpt) do (
+	if exist "%%F" (
+		%SED% -i "s/^\( *\)\$env$/\1$env, ['bypass_shell' => true]/" "%%F" || exit /b 1
+		findstr /c:"bypass_shell" "%%F" >nul || (echo bypass_shell fix was not applied to %%F & exit /b 1)
+	)
 )
 
 rem --- Dependencies were downloaded by the workflow to ..\deps ---

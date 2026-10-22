@@ -58,11 +58,10 @@ if not exist "%ROOT%\deps\include\openssl\ssl.h" (
 	exit /b 1
 )
 
-rem --- Apache 2.4 headers and libs (mod_php only) ---
+rem --- Apache 2.4 headers and libs from the PHP SDK dependencies (mod_php only) ---
 if /i "%MODE%"=="modphp" (
-	xcopy /e /i /y /q "%REPO%\win\apache24\include" "%ROOT%\deps\include\apache2_4" >nul || exit /b 1
-	mkdir "%ROOT%\deps\lib\apache2_4" 2>nul
-	copy /y "%REPO%\win\apache24\lib\*.lib" "%ROOT%\deps\lib\apache2_4\" >nul || exit /b 1
+	if not exist "%ROOT%\deps\include\apache2_4\httpd.h" (echo httpd.h not found in deps\include\apache2_4 & exit /b 1)
+	if not exist "%ROOT%\deps\lib\apache2_4\libhttpd.lib" (echo libhttpd.lib not found in deps\lib\apache2_4 & exit /b 1)
 )
 
 rem --- Build ---

@@ -1,0 +1,48 @@
+name: Windows PHP 7.3 VC15 x64
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "Вариант патча"
+        type: choice
+        options:
+          - remicollet
+          - enhanced
+          - minimal
+        default: remicollet
+      mode:
+        description: "fcgid = NTS + php-cgi.exe, modphp = TS + php7apache2_4.dll"
+        type: choice
+        options:
+          - fcgid
+          - modphp
+        default: fcgid
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 180
+    steps:
+      - name: Disable CRLF conversion
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v4
+
+      - name: Install VS 2017 Build Tools (VC15)
+        shell: pwsh
+        run: |
+          choco install visualstudio2017buildtools visualstudio2017-workload-vctools -y --no-progress
+          if ($LASTEXITCODE -eq 3010) { exit 0 }
+
+      - name: Get PHP SDK
+        run: git clone --depth 1 --branch php-sdk-2.2.0 https://github.com/php/php-sdk-binary-tools.git C:\php-sdk
+
+      - name: Build
+        shell: cmd
+        run: C:\php-sdk\phpsdk-starter.bat -c vc15 -a x64 -t %GITHUB_WORKSPACE%\win\build-php73.bat --task-args "${{ inputs.variant }} ${{ inputs.mode }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: php-7.3-${{ inputs.variant }}-${{ inputs.mode }}-Win32-VC15-x64
+          path: C:\php-build\src\x64\Release*\php-*.zip

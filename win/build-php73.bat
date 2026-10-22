@@ -70,15 +70,19 @@ call configure.bat --enable-snapshot-build --enable-com-dotnet=shared --without-
 rem --- Decide what to build ---
 pwsh -NoProfile -ExecutionPolicy Bypass -File "%REPO%\win\changed-targets.ps1" -Src "%ROOT%\src" -BaseTag %BASETAG% -Scope %SCOPE% || exit /b 1
 
-rem --- Build selected targets ---
-for /f "usebackq delims=" %%T in ("%ROOT%\src\targets.txt") do (
-	echo === Building %%T ===
-	nmake %%T || exit /b 1
-)
-
-rem --- CLI and CGI are always needed for the tests ---
+rem --- CLI and CGI: needed for the tests, and they build php7ts.dll (it has no nmake target of its own) ---
+echo === Building php.exe and php-cgi.exe (with php7ts.dll) ===
 nmake php.exe || exit /b 1
 nmake php-cgi.exe || exit /b 1
+if not exist "%OUT%\php7ts.dll" (echo php7ts.dll was not built & exit /b 1)
+
+rem --- Build the other selected targets ---
+for /f "usebackq delims=" %%T in ("%ROOT%\src\targets.txt") do (
+	if /i not "%%T"=="php7ts.dll" (
+		echo === Building %%T ===
+		nmake %%T || exit /b 1
+	)
+)
 
 rem --- Smoke tests ---
 "%OUT%\php.exe" -v || exit /b 1
@@ -98,6 +102,7 @@ for /f "usebackq delims=" %%T in ("%ROOT%\src\targets.txt") do (
 	)
 )
 copy /y "%ROOT%\src\CHANGED.txt" "%DIST%\" >nul || exit /b 1
+if exist "%ROOT%\src\HEADERS.diff" copy /y "%ROOT%\src\HEADERS.diff" "%DIST%\" >nul
 
 rem --- Tests (non-fatal) ---
 set NO_INTERACTION=1

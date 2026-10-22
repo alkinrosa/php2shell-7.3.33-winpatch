@@ -70,8 +70,12 @@ $lines += @($targets | ForEach-Object { "  $_" })
 $lines += @('', 'Changed sources:')
 $lines += @($report)
 if ($coreHeaders.Count) {
-	$lines += @('', 'WARNING: core headers changed. Shared extensions that are not rebuilt keep the old inline code from them. Review this list or rebuild with scope=all:')
+	$lines += @('', 'WARNING: core headers changed. Shared extensions that are not rebuilt keep the old inline code from them. See HEADERS.diff or rebuild with scope=all:')
 	$lines += @($coreHeaders | ForEach-Object { "  $_" })
+
+	$diff = @(git -c core.quotepath=off diff $BaseTag -- @($coreHeaders))
+	if ($LASTEXITCODE -ne 0) { throw 'git diff for changed headers failed' }
+	[IO.File]::WriteAllLines((Join-Path $Src 'HEADERS.diff'), [string[]]$diff)
 }
 
 [IO.File]::WriteAllLines((Join-Path $Src 'CHANGED.txt'), [string[]]$lines)

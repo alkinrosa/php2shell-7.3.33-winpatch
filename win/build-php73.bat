@@ -52,8 +52,11 @@ if /i "%VARIANT%"=="remicollet" (
 	findstr /c:"max_multipart_body_parts" main\main.c >nul || (echo Remi tree lacks max_multipart_body_parts & exit /b 1)
 )
 
-rem --- Dependencies (to ..\deps) ---
-call phpsdk_deps -u -b 7.3 || exit /b 1
+rem --- Dependencies were downloaded by the workflow to ..\deps ---
+if not exist "%ROOT%\deps\include\openssl\ssl.h" (
+	echo Dependencies not found in %ROOT%\deps
+	exit /b 1
+)
 
 rem --- Apache 2.4 headers and libs (mod_php only) ---
 if /i "%MODE%"=="modphp" (

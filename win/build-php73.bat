@@ -110,5 +110,20 @@ set TEST_PHP_EXECUTABLE=%OUT%\php.exe
 set TEST_PHP_CGI_EXECUTABLE=%OUT%\php-cgi.exe
 "%OUT%\php.exe" -n run-tests.php -q -p "%OUT%\php.exe" ext\session\tests ext\standard\tests\serialize || echo Some tests failed, check the log
 
+rem --- Details of failed tests: print to the log and put into the artifact ---
+mkdir "%DIST%\test-failures" 2>nul
+for /r "%ROOT%\src\ext" %%F in (*.diff) do (
+	echo.
+	echo ===== DIFF %%F =====
+	type "%%F"
+	if exist "%%~dpnF.out" (
+		echo ===== OUT %%~dpnF.out =====
+		type "%%~dpnF.out"
+	)
+	copy /y "%%F" "%DIST%\test-failures\" >nul
+	if exist "%%~dpnF.out" copy /y "%%~dpnF.out" "%DIST%\test-failures\" >nul
+	if exist "%%~dpnF.exp" copy /y "%%~dpnF.exp" "%DIST%\test-failures\" >nul
+)
+
 echo ok> "%ROOT%\BUILD_OK"
 exit /b 0

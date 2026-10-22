@@ -35,20 +35,27 @@ jobs:
           choco install visualstudio2017buildtools visualstudio2017-workload-vctools -y --no-progress
           if ($LASTEXITCODE -eq 3010) { exit 0 }
 
-      - name: Get PHP SDK and point it to the new deps server
+      - name: Get PHP SDK
+        run: git clone --depth 1 --branch php-sdk-2.2.0 https://github.com/php/php-sdk-binary-tools.git C:\php-sdk
+
+      - name: Download PHP 7.3 dependencies
         shell: pwsh
         run: |
-          git clone --depth 1 --branch php-sdk-2.2.0 https://github.com/php/php-sdk-binary-tools.git C:\php-sdk
-          if ($LASTEXITCODE -ne 0) { throw 'git clone of php-sdk failed' }
-          $f = 'C:\php-sdk\lib\php\libsdk\SDK\Config.php'
-          $c = [IO.File]::ReadAllText($f)
-          $c = $c.Replace("'windows.php.net'", "'downloads.php.net'")
-          $c = $c.Replace('"/downloads/php-sdk/deps"', '"/~windows/php-sdk/deps"')
-          $c = $c.Replace(',/packages-(.+)', ',packages-(.+)')
-          [IO.File]::WriteAllText($f, $c)
-          if (-not (Select-String -Path $f -SimpleMatch "'downloads.php.net'")) { throw 'SDK host patch failed' }
-          if (-not (Select-String -Path $f -SimpleMatch '"/~windows/php-sdk/deps"')) { throw 'SDK base URI patch failed' }
-          if (-not (Select-String -Path $f -SimpleMatch ',packages-(.+)')) { throw 'SDK regex patch failed' }
+          $ProgressPreference = 'SilentlyContinue'
+          $base = 'https://downloads.php.net/~windows/php-sdk/deps'
+          $deps = 'C:\php-build\deps'
+          $tmp  = 'C:\php-build\deps-zip'
+          New-Item -ItemType Directory -Force -Path $deps, $tmp | Out-Null
+          $list = (Invoke-WebRequest -UseBasicParsing "$base/series/packages-7.3-vc15-x64-stable.txt").Content -split "`r?`n" | Where-Object { $_.Trim() -ne '' }
+          foreach ($name in $list) {
+            $name = $name.Trim()
+            $zip = Join-Path $tmp $name
+            Write-Host "Downloading $name"
+            Invoke-WebRequest -UseBasicParsing -Uri "$base/vc15/x64/$name" -OutFile $zip
+            Expand-Archive -Path $zip -DestinationPath $deps -Force
+          }
+          if (-not (Test-Path "$deps\include\openssl\ssl.h")) { throw 'Unexpected deps layout: include\openssl\ssl.h not found' }
+          Get-ChildItem $deps | Select-Object Name
 
       - name: Build
         shell: cmd

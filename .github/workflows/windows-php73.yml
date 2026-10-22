@@ -12,12 +12,12 @@ on:
           - minimal
         default: remicollet
       mode:
-        description: "fcgid = NTS + php-cgi.exe, modphp = TS + php7apache2_4.dll"
+        description: "modphp = TS + php7apache2_4.dll, fcgid = NTS + php-cgi.exe"
         type: choice
         options:
-          - fcgid
           - modphp
-        default: fcgid
+          - fcgid
+        default: modphp
 
 jobs:
   build:
@@ -42,7 +42,12 @@ jobs:
         shell: cmd
         run: C:\php-sdk\phpsdk-starter.bat -c vc15 -a x64 -t %GITHUB_WORKSPACE%\win\build-php73.bat --task-args "${{ inputs.variant }} ${{ inputs.mode }}"
 
+      - name: Verify build result
+        shell: cmd
+        run: if not exist C:\php-build\BUILD_OK (echo Build script failed, see the Build step log & exit /b 1)
+
       - uses: actions/upload-artifact@v4
         with:
           name: php-7.3-${{ inputs.variant }}-${{ inputs.mode }}-Win32-VC15-x64
           path: C:\php-build\src\x64\Release*\php-*.zip
+          if-no-files-found: error

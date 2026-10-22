@@ -7,7 +7,6 @@ set PHPVER=7.3.33
 set ROOT=C:\php-build
 set REPO=%GITHUB_WORKSPACE%
 set SYS=%SystemRoot%\System32
-set SED="%ProgramFiles%\Git\usr\bin\sed.exe"
 
 if /i "%VARIANT%"=="remicollet" (
 	set PATCH=%REPO%\patches\php-7.3-enhanced-remicollet.patch
@@ -20,12 +19,12 @@ if /i "%VARIANT%"=="remicollet" (
 	exit /b 1
 )
 
-if /i "%MODE%"=="fcgid" (
-	set CONF_MODE=--disable-zts
-	set OUT=%ROOT%\src\x64\Release
-) else if /i "%MODE%"=="modphp" (
+if /i "%MODE%"=="modphp" (
 	set CONF_MODE=--enable-apache2-4handler
 	set OUT=%ROOT%\src\x64\Release_TS
+) else if /i "%MODE%"=="fcgid" (
+	set CONF_MODE=--disable-zts
+	set OUT=%ROOT%\src\x64\Release
 ) else (
 	echo Unknown mode "%MODE%"
 	exit /b 1
@@ -47,18 +46,6 @@ cd /d "%ROOT%\src" || exit /b 1
 
 rem --- Patch ---
 git apply --verbose "%PATCH%" || exit /b 1
-
-rem --- Fix: 7.3 patches do not initialize incomplete_classes_only in php_var_unserialize_init ---
-findstr /c:"zend_bool incomplete_classes_only;" ext\standard\var_unserializer.c >nul
-if not errorlevel 1 (
-	for %%F in (ext\standard\var_unserializer.re ext\standard\var_unserializer.c) do (
-		findstr /c:"d->incomplete_classes_only = 0;" %%F >nul
-		if errorlevel 1 (
-			%SED% -i "s/d->allowed_classes = NULL;/d->allowed_classes = NULL; d->incomplete_classes_only = 0;/" %%F || exit /b 1
-			findstr /c:"d->incomplete_classes_only = 0;" %%F >nul || (echo Init fix was not applied to %%F & exit /b 1)
-		)
-	)
-)
 
 rem --- Remi tree must already contain the multipart body parts limit ---
 if /i "%VARIANT%"=="remicollet" (
@@ -85,13 +72,14 @@ rem --- Smoke tests ---
 "%OUT%\php.exe" -v || exit /b 1
 "%OUT%\php.exe" -m | findstr /i /x session || exit /b 1
 "%OUT%\php.exe" -n -r "class A{public $x=1;} echo get_class(unserialize(serialize(new A)));" | findstr /x A || exit /b 1
-if /i "%MODE%"=="fcgid" (
-	if not exist "%OUT%\php-cgi.exe" (echo php-cgi.exe was not built & exit /b 1)
-) else (
+if /i "%MODE%"=="modphp" (
 	if not exist "%OUT%\php7apache2_4.dll" (echo php7apache2_4.dll was not built & exit /b 1)
+) else (
+	if not exist "%OUT%\php-cgi.exe" (echo php-cgi.exe was not built & exit /b 1)
 )
 
 rem --- Tests (non-fatal) ---
 nmake test TESTS="ext\session\tests ext\standard\tests\serialize" || echo Some tests failed, check the log
 
+echo ok> "%ROOT%\BUILD_OK"
 exit /b 0

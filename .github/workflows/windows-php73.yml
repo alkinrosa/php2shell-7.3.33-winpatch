@@ -1,4 +1,4 @@
-name: Windows PHP 7.3 VC15 x64
+name: Windows PHP 7.3 fixes (TS, VC15, x64)
 
 on:
   workflow_dispatch:
@@ -11,13 +11,13 @@ on:
           - enhanced
           - minimal
         default: remicollet
-      mode:
-        description: "modphp = TS + php7apache2_4.dll, fcgid = NTS + php-cgi.exe"
+      scope:
+        description: "changed = только измененные бинарники, all = все бинарники"
         type: choice
         options:
-          - modphp
-          - fcgid
-        default: modphp
+          - changed
+          - all
+        default: changed
 
 jobs:
   build:
@@ -55,18 +55,18 @@ jobs:
             Expand-Archive -Path $zip -DestinationPath $deps -Force
           }
           if (-not (Test-Path "$deps\include\openssl\ssl.h")) { throw 'Unexpected deps layout: include\openssl\ssl.h not found' }
-          Get-ChildItem $deps | Select-Object Name
 
       - name: Build
         shell: cmd
-        run: C:\php-sdk\phpsdk-starter.bat -c vc15 -a x64 -t %GITHUB_WORKSPACE%\win\build-php73.bat --task-args "${{ inputs.variant }} ${{ inputs.mode }}"
+        run: C:\php-sdk\phpsdk-starter.bat -c vc15 -a x64 -t %GITHUB_WORKSPACE%\win\build-php73.bat --task-args "${{ inputs.variant }} ${{ inputs.scope }}"
 
       - name: Verify build result
         shell: cmd
         run: if not exist C:\php-build\BUILD_OK (echo Build script failed, see the Build step log & exit /b 1)
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: php-7.3-${{ inputs.variant }}-${{ inputs.mode }}-Win32-VC15-x64
-          path: C:\php-build\src\x64\Release*\php-*.zip
+          name: php-7.3.33-${{ inputs.variant }}-${{ inputs.scope }}-VC15-x64-TS
+          path: C:\php-build\dist\
           if-no-files-found: error
